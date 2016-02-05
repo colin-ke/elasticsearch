@@ -426,12 +426,17 @@ public class Store extends AbstractIndexShardComponent implements CloseableIndex
      * corruption markers.
      */
     public static boolean canOpenIndex(ESLogger logger, File... indexLocations) throws IOException {
-        final Directory[] dirs = new Directory[indexLocations.length];
+        final List<Directory> dirs = new ArrayList<>();
         try {
             for (int i = 0; i < indexLocations.length; i++) {
-                dirs[i] = new SimpleFSDirectory(indexLocations[i]);
+                if(null != indexLocations[i] && indexLocations[i].exists())
+                    dirs.add(new SimpleFSDirectory(indexLocations[i]));
             }
-            final Directory dir = dirs.length == 1 ? dirs[0] : new DistributorDirectory(dirs);
+            if(0 == dirs.size()) {
+                logger.debug("None of the index(lucene index) locations exist [{}]", indexLocations);
+                return false;
+            }
+            final Directory dir = dirs.size() == 1 ? dirs.get(0) : new DistributorDirectory(dirs.toArray(new Directory[dirs.size()]));
             failIfCorrupted(dir, new ShardId("", 1));
             Lucene.readSegmentInfos(dir);
             return true;
